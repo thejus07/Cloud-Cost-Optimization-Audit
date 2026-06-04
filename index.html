@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Cloud Cost Optimization Audit Dashboard</title>
+  <meta name="description" content="An interactive dashboard demonstrating AWS cost audits, rightsizing recommendations, runbooks, and savings calculations.">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Main Grid Layout -->
+  <div class="app-container">
+    
+    <!-- Top Navbar -->
+    <header class="app-header">
+      <div class="logo-area">
+        <svg class="aws-logo" viewBox="0 0 50 50" width="32" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M25 0C11.1929 0 0 11.1929 0 25C0 38.8071 11.1929 50 25 50C38.8071 50 50 38.8071 50 25C50 11.1929 38.8071 0 25 0ZM25 45.4545C13.7027 45.4545 4.54545 36.2973 4.54545 25C4.54545 13.7027 13.7027 4.54545 25 4.54545C36.2973 4.54545 45.4545 13.7027 45.4545 25C45.4545 36.2973 36.2973 45.4545 25 45.4545Z" fill="currentColor"/>
+          <path d="M34.8 30.2C33.2 32.8 30.1 34.5 25 34.5C18.9 34.5 15.2 30.5 15.2 25.1C15.2 19.5 19 15.5 25.2 15.5C29.6 15.5 32.8 17.2 34.3 19.5L31 22.2C29.7 20.6 27.9 19.5 25.1 19.5C21.6 19.5 19.4 22 19.4 25.1C19.4 28.1 21.6 30.6 25.1 30.6C28.2 30.6 30.2 29.2 31.5 27.4L34.8 30.2Z" fill="currentColor"/>
+        </svg>
+        <div class="logo-text">
+          <h1>AWS Cost Optimizer</h1>
+          <span class="sub-title">Automated Cost Optimization Audit</span>
+        </div>
+      </div>
+      
+      <div class="header-controls">
+        <button id="scan-trigger-btn" class="btn btn-primary" onclick="triggerAuditScan()">
+          <span class="btn-icon">⚡</span>
+          <span id="scan-btn-text">Run Cost Audit</span>
+        </button>
+        <button id="theme-toggle-btn" class="btn btn-circle" aria-label="Toggle light/dark theme" onclick="toggleTheme()">
+          <svg class="theme-icon sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg class="theme-icon moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scan Progress Overlay/Console Container -->
+    <div id="scan-overlay" class="scan-overlay hidden">
+      <div class="scan-modal">
+        <div class="scan-header">
+          <h3>Running Cloud Cost Audit...</h3>
+          <span class="scan-progress-bar-container">
+            <span id="scan-progress-bar" class="scan-progress-bar"></span>
+          </span>
+        </div>
+        <div id="scan-console" class="scan-console"></div>
+        <div class="scan-footer">
+          <span class="pulse-indicator"></span>
+          <span id="scan-status-text">Connecting to AWS APIs via STS...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Dashboard Body -->
+    <main class="dashboard-main">
+      
+      <!-- KPI Stats Section -->
+      <section class="kpi-grid">
+        <div class="kpi-card" id="kpi-current-spend">
+          <div class="kpi-header">
+            <span>Current Monthly Spend</span>
+            <span class="kpi-badge badge-warning">Active Audit</span>
+          </div>
+          <div class="kpi-value" id="val-current-spend">$14,250</div>
+          <div class="kpi-comparison">Baseline across standard resource types</div>
+        </div>
+
+        <div class="kpi-card highlight" id="kpi-potential-savings">
+          <div class="kpi-header">
+            <span>Projected Monthly Savings</span>
+            <span class="kpi-badge badge-success" id="val-savings-pct">27.0% Saved</span>
+          </div>
+          <div class="kpi-value" id="val-projected-savings">$3,850</div>
+          <div class="kpi-comparison">Estimated target: <span id="target-monthly-spend">$10,400</span>/mo</div>
+        </div>
+
+        <div class="kpi-card" id="kpi-resources">
+          <div class="kpi-header">
+            <span>Flagged Resources</span>
+            <span class="kpi-icon">🔍</span>
+          </div>
+          <div class="kpi-value" id="val-flagged-count">21</div>
+          <div class="kpi-comparison">EC2 Instances, EBS Volumes, & EIPs</div>
+        </div>
+
+        <div class="kpi-card" id="kpi-anomalies">
+          <div class="kpi-header">
+            <span>Alerting Status</span>
+            <span class="kpi-badge badge-info" id="active-rules-badge">3 Rules</span>
+          </div>
+          <div class="kpi-value color-green" id="val-alert-status">All Normal</div>
+          <div class="kpi-comparison">Live budget limits monitored</div>
+        </div>
+      </section>
+
+      <!-- Charts & Cost Analytics Area -->
+      <section class="analytics-grid">
+        <!-- Chart Card -->
+        <div class="dashboard-card chart-card">
+          <div class="card-header">
+            <h3 class="card-title">Service-Level Cost Breakdown</h3>
+            <div class="card-controls">
+              <button id="chart-toggle-before" class="btn btn-sm btn-toggle active" onclick="setChartCostState('before')">Before Audit</button>
+              <button id="chart-toggle-after" class="btn btn-sm btn-toggle" onclick="setChartCostState('after')">After Recommendations</button>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="costBreakdownChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Audit Summary List -->
+        <div class="dashboard-card audit-summary-card">
+          <div class="card-header">
+            <h3 class="card-title">Actionable Recommendation Summary</h3>
+          </div>
+          <div class="summary-list">
+            <div class="summary-item">
+              <div class="summary-dot bg-orange"></div>
+              <div class="summary-info">
+                <h4>Rightsize 5 underutilized EC2 Instances</h4>
+                <p>Modify over-provisioned compute types to recommended T3/M6g instances.</p>
+              </div>
+              <div class="summary-value">$2,120/mo</div>
+            </div>
+            
+            <div class="summary-item">
+              <div class="summary-dot bg-cyan"></div>
+              <div class="summary-info">
+                <h4>Purge 12 unattached EBS volumes</h4>
+                <p>Remove detached blocks after generating final snapshots.</p>
+              </div>
+              <div class="summary-value">$1,510/mo</div>
+            </div>
+
+            <div class="summary-item">
+              <div class="summary-dot bg-blue"></div>
+              <div class="summary-info">
+                <h4>Release 4 idle Elastic IPs</h4>
+                <p>Dissociate and release inactive IPs charging hourly retention fees.</p>
+              </div>
+              <div class="summary-value">$220/mo</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Interactive Tabbed Audit Findings -->
+      <section class="dashboard-card findings-section">
+        <div class="tabs-header">
+          <div class="tab-triggers">
+            <button id="tab-ec2" class="tab-trigger active" onclick="switchTab('ec2')">
+              <span class="tab-icon">🖥️</span> Compute (EC2 Rightsizing)
+            </button>
+            <button id="tab-ebs" class="tab-trigger" onclick="switchTab('ebs')">
+              <span class="tab-icon">💾</span> Storage (EBS Volumes)
+            </button>
+            <button id="tab-eip" class="tab-trigger" onclick="switchTab('eip')">
+              <span class="tab-icon">🌐</span> Networking (Idle IPs)
+            </button>
+          </div>
+          <span class="resource-badge" id="tab-badge-count">5 Instances Flagged</span>
+        </div>
+
+        <div class="tabs-content">
+          <!-- EC2 TAB -->
+          <div id="panel-ec2" class="tab-panel active">
+            <div class="panel-intro">
+              <p>The following instances have had <strong>&lt; 5% average CPU utilization</strong> over the last 14 days and are prime candidates for rightsizing to smaller types or modern Graviton instances.</p>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Instance ID / Name</th>
+                    <th>Region</th>
+                    <th>Current Type</th>
+                    <th>Recommended Type</th>
+                    <th>Avg CPU</th>
+                    <th>Monthly Savings</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ec2-table-body">
+                  <!-- JS Rendered rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- EBS TAB -->
+          <div id="panel-ebs" class="tab-panel">
+            <div class="panel-intro">
+              <p>These EBS Volumes are currently <strong>unattached</strong> to any running EC2 instances, generating passive charges. We recommend snapshotting and deleting them.</p>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Volume ID / Name</th>
+                    <th>Region</th>
+                    <th>Volume Type</th>
+                    <th>Size (GB)</th>
+                    <th>IOPS</th>
+                    <th>Monthly Cost</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ebs-table-body">
+                  <!-- JS Rendered rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- EIP TAB -->
+          <div id="panel-eip" class="tab-panel">
+            <div class="panel-intro">
+              <p>Elastic IP addresses that are allocated but <strong>not associated</strong> with an active EC2 instance or NAT gateway incur an hourly penalty fee of $0.005/hr ($3.60 - $7.30/mo each depending on region and rules).</p>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>IP Address</th>
+                    <th>Region</th>
+                    <th>Allocation ID</th>
+                    <th>Idle Time</th>
+                    <th>Monthly Saving</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="eip-table-body">
+                  <!-- JS Rendered rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Runbook & Interactive Tools Grid -->
+      <section class="tools-grid">
+        
+        <!-- Tagging Strategy Policy Validator -->
+        <div class="dashboard-card tool-card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Tagging Strategy Validator</h3>
+              <p class="card-subtitle">Ensure resources follow organization cost allocation structures.</p>
+            </div>
+            <span class="tool-badge">Runbook 1.1</span>
+          </div>
+          
+          <div class="tool-content">
+            <div class="preset-buttons">
+              <button class="btn btn-sm btn-outline" onclick="loadTagPreset('valid')">Load Valid Sample</button>
+              <button class="btn btn-sm btn-outline" onclick="loadTagPreset('invalid')">Load Missing Tags</button>
+            </div>
+            <div class="code-editor-container">
+              <textarea id="tag-json-editor" spellcheck="false" class="code-editor" placeholder='Enter Resource Tags JSON here...'></textarea>
+            </div>
+            <div class="editor-actions">
+              <button class="btn btn-secondary" onclick="validateTags()">Validate Policies</button>
+              <div id="tag-validation-result" class="validation-result-msg hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RI & Savings Plans Calculator -->
+        <div class="dashboard-card tool-card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Reserved Instance (RI) Planner</h3>
+              <p class="card-subtitle">Amortize savings by committing to predictable compute usage.</p>
+            </div>
+            <span class="tool-badge">Runbook 1.2</span>
+          </div>
+
+          <div class="tool-content">
+            <div class="input-row-grid">
+              <div class="input-group">
+                <label for="ri-instance-family">Instance Family</label>
+                <select id="ri-instance-family" onchange="calculateRISavings()">
+                  <option value="t3.large">t3 (General Purpose)</option>
+                  <option value="m6g.xlarge">m6g (Graviton Compute)</option>
+                  <option value="c6i.2xlarge">c6i (Compute Optimized)</option>
+                  <option value="r6i.xlarge">r6i (Memory Optimized)</option>
+                </select>
+              </div>
+
+              <div class="input-group">
+                <label for="ri-quantity">Quantity</label>
+                <input type="number" id="ri-quantity" min="1" max="1000" value="10" oninput="calculateRISavings()">
+              </div>
+            </div>
+
+            <div class="calculator-results">
+              <div class="result-tile">
+                <span class="tile-label">On-Demand Monthly Cost</span>
+                <span class="tile-val" id="ri-val-ondemand">$606</span>
+              </div>
+              <div class="result-tile green">
+                <span class="tile-label">1-Year RI (37% Sav)</span>
+                <span class="tile-val" id="ri-val-1year">$381.78</span>
+              </div>
+              <div class="result-tile deep-green">
+                <span class="tile-label">3-Year RI (57% Sav)</span>
+                <span class="tile-val" id="ri-val-3year">$260.58</span>
+              </div>
+            </div>
+
+            <div class="savings-summary-text">
+              <p>Committing to a 3-Year Savings Plan for these nodes saves <strong id="calc-monthly-diff">$345.42</strong> every month compared to standard On-Demand pricing.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Budget Alerts & Anomaly Simulator -->
+        <div class="dashboard-card tool-card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Budget Alert & Anomaly Simulator</h3>
+              <p class="card-subtitle">Configure thresholds and simulate unexpected cloud spend spikes.</p>
+            </div>
+            <span class="tool-badge">Runbook 1.3</span>
+          </div>
+
+          <div class="tool-content">
+            <div class="threshold-sliders">
+              <div class="slider-group">
+                <div class="slider-labels">
+                  <span>Daily Spend Warning Limit</span>
+                  <span id="label-warning-limit">$500/day</span>
+                </div>
+                <input type="range" id="input-warning-limit" min="200" max="1000" step="50" value="500" oninput="updateAlertSliders()">
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-labels">
+                  <span>Slack Notification Channel</span>
+                  <span>#aws-finops-alerts</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="simulation-actions">
+              <button class="btn btn-warning" onclick="simulateAnomaly('spike')">🚨 Simulate Spike (Alert Trigger)</button>
+              <button class="btn btn-success" onclick="simulateAnomaly('normal')">✅ Simulate Safe Recovery</button>
+            </div>
+            <div class="simulation-info">
+              <p>Anomalous spikes in EC2 spending or NAT Gateway transfer trigger immediate Slack notifications and runbook responses via AWS Lambda automation.</p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- AWS Command Action Drawer/Panel -->
+      <section class="dashboard-card command-console-card">
+        <div class="card-header">
+          <h3 class="card-title">Deployment / Execution CLI Generator</h3>
+          <span class="card-badge badge-terminal">Automation Snippet</span>
+        </div>
+        <div class="command-content">
+          <p class="command-intro">Select or perform rightsizing actions in the tables above to populate this panel. Execute via AWS CLI or copy Terraform configuration.</p>
+          <div class="tab-mini-header">
+            <button id="cli-tab-aws" class="mini-tab-trigger active" onclick="switchCliTab('aws')">AWS CLI</button>
+            <button id="cli-tab-tf" class="mini-tab-trigger" onclick="switchCliTab('tf')">Terraform Config</button>
+          </div>
+          <div class="code-viewer">
+            <pre><code id="code-snippet-display"># No action queued. Click 'Rightsize' or 'Release/Delete' in tables to preview code here.</code></pre>
+            <button class="btn btn-sm btn-copy" onclick="copyCodeSnippet()">
+              <span id="copy-btn-text">Copy Code</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>&copy; 2026 AWS Cloud Cost Audit Optimization. All rights reserved. Ref: Trusted Advisor Recommendations & Cost Explorer Analytics.</p>
+    </footer>
+  </div>
+
+  <!-- Main JavaScript File -->
+  <script src="app.js"></script>
+</body>
+</html>
