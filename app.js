@@ -1,16 +1,12 @@
-// AWS Cost Optimizer Dashboard JavaScript Logic
 
-// -------------------------------------------------------------
-// 1. Initial State Definition
-// -------------------------------------------------------------
 const state = {
   theme: 'dark',
   activeTab: 'ec2',
   selectedCliTab: 'aws',
   scanned: false,
-  chartState: 'before', // 'before' or 'after'
+  chartState: 'before', 
   costs: {
-    compute: 7200,      // Before recommendations
+    compute: 7200,     
     storage: 4800,
     networking: 2250
   },
@@ -19,7 +15,7 @@ const state = {
     ebs: 0,
     eip: 0
   },
-  selectedAction: null, // Track currently active CLI snippet resource
+  selectedAction: null,
   ec2Instances: [
     { id: 'i-0ab12cd34ef567a1a', name: 'dev-backend-api', region: 'us-east-1', currentType: 't3.large', recommendedType: 't3.medium', cpuAvg: '1.8%', monthlyCost: 68, potentialSavings: 34, status: 'flagged' },
     { id: 'i-0cd23ef45gh678b2b', name: 'staging-redis-cache', region: 'us-west-2', currentType: 'r6i.xlarge', recommendedType: 'r6i.large', cpuAvg: '2.4%', monthlyCost: 252, potentialSavings: 126, status: 'flagged' },
@@ -40,8 +36,6 @@ const state = {
     { ip: '18.196.4.102', region: 'eu-central-1', allocationId: 'eipalloc-04i56j78k90l12', idleTime: '19 days', monthlyCost: 7.30, status: 'idle' }
   ]
 };
-
-// Map of cost figures to compute totals
 const PricingMap = {
   't3.large': 68,
   't3.medium': 34,
@@ -57,35 +51,24 @@ const PricingMap = {
 
 let costChart = null;
 
-// -------------------------------------------------------------
-// 2. Application Init
-// -------------------------------------------------------------
+
 document.addEventListener('DOMContentLoaded', () => {
-  // Check and apply system theme or custom state
   document.documentElement.setAttribute('data-theme', state.theme);
-  
-  // Set default JSON policy in tagging editor
+
   loadTagPreset('invalid');
   
-  // Init charts with baseline data (but hidden display until scan)
   initCostChart();
 
-  // Run calculator once
   calculateRISavings();
   
-  // Start with a mock dashboard view
   updateDashboardMetrics();
   renderAllTables();
 });
 
-// -------------------------------------------------------------
-// 3. Theme Toggle
-// -------------------------------------------------------------
 function toggleTheme() {
   state.theme = state.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', state.theme);
   
-  // Update Chart colors dynamically
   if (costChart) {
     const textColor = state.theme === 'dark' ? '#9ca3af' : '#4b5563';
     costChart.options.plugins.legend.labels.color = textColor;
@@ -94,9 +77,6 @@ function toggleTheme() {
   showToast('Theme Changed', `Switched dashboard to ${state.theme} mode`, 'success');
 }
 
-// -------------------------------------------------------------
-// 4. Audit Scanner Simulation
-// -------------------------------------------------------------
 function triggerAuditScan() {
   const overlay = document.getElementById('scan-overlay');
   const consoleEl = document.getElementById('scan-console');
@@ -153,16 +133,11 @@ function triggerAuditScan() {
   processLog();
 }
 
-// -------------------------------------------------------------
-// 5. Dashboard Metrics & Chart Configuration
-// -------------------------------------------------------------
 function getActiveCosts() {
-  // Computes active costs after user adjustments
   let activeCompute = state.costs.compute;
   let activeStorage = state.costs.storage;
   let activeNetworking = state.costs.networking;
 
-  // Subtract savings that have been locked in by user actions
   activeCompute -= state.savings.ec2;
   activeStorage -= state.savings.ebs;
   activeNetworking -= state.savings.eip;
@@ -189,17 +164,14 @@ function updateDashboardMetrics() {
   document.getElementById('val-savings-pct').textContent = `${savingsPct}% Saved`;
   document.getElementById('target-monthly-spend').textContent = `$${(baselineTotal - 3850).toLocaleString()}`;
   
-  // Count active flagged items
   const flaggedEc2 = state.ec2Instances.filter(i => i.status === 'flagged').length;
   const flaggedEbs = state.ebsVolumes.filter(v => v.status === 'unattached').length;
   const flaggedEip = state.elasticIps.filter(ip => ip.status === 'idle').length;
   const totalFlagged = flaggedEc2 + flaggedEbs + flaggedEip;
   document.getElementById('val-flagged-count').textContent = totalFlagged;
 
-  // Redraw charts
   updateCostChart();
   
-  // Update resource tab count badge
   let activeTabName = state.activeTab;
   let tabCount = 0;
   if (activeTabName === 'ec2') {
@@ -287,21 +259,15 @@ function updateCostChart() {
     networkingVal = state.costs.networking;
   } else {
     // Show optimized metrics
-    computeVal = state.costs.compute - 2120; // Full projected target for Compute
-    storageVal = state.costs.storage - 1510; // Full projected target for Storage
-    networkingVal = state.costs.networking - 220; // Full target for Net
-    
-    // Adjust if user clicked actions that exceed or are different
-    // (For this mock design, showing final target represents "Goal" optimized state)
+    computeVal = state.costs.compute - 2120; 
+    storageVal = state.costs.storage - 1510; 
+    networkingVal = state.costs.networking - 220; 
   }
 
   costChart.data.datasets[0].data = [computeVal, storageVal, networkingVal];
   costChart.update();
 }
 
-// -------------------------------------------------------------
-// 6. Tab Manager
-// -------------------------------------------------------------
 function switchTab(tabName) {
   state.activeTab = tabName;
   
